@@ -1,4 +1,4 @@
-Finn Wright's StrongARM Emulator
+Finn Wright's WrightARM Emulator
 
 cmd = Command Line Prompt
 
@@ -40,6 +40,8 @@ HOW TO USE (WINDOWS):
 FLAGS:
     These flags allow you to debug your program in different ways
     You can chain as many flags together as you want
+    "-help":
+        Get quick info on all the flags
     "-r":
         Check the final state of all the registers
     "-p":

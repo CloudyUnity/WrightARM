@@ -11,8 +11,11 @@
 
   .weak  Reset_Handler
   .type  Reset_Handler, %function
-Reset_Handler:    
+Reset_Handler:        
+    LDR SP, =0x20001000    
+    PUSH {R0-R8}
     BL Init_Mem     @ Set up memory
+    POP {R0-R8}
     BL Init_Test    @ Run test.s
     BL Main         @ Run Main
     NOP             @ Debug purposes    
@@ -54,3 +57,5 @@ edata:
   .word _edata
 
 .end   
+
+

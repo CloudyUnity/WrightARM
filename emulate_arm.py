@@ -1,3 +1,6 @@
+# Python 2 compatibility
+from __future__ import print_function
+
 from unicorn import *
 from unicorn.arm_const import *
 import os
@@ -7,22 +10,26 @@ import subprocess
 import shutil
 import re
 import time
+import platform
 
 ADDRESS = 0x8000000
 RAM_ADDRESS = 0x20000000
+STACK_ADDRESS = 0x2001000
+
 MAX_RUNNING_SECONDS = 10
 BUILD_NAME = "strongArmBuild"
 USE_LINKER = True
 
-DEBUG_INSTRUCTIONS = False # -i
-DEBUG_MACHINE_CODE = False # -mc
-DEBUG_ELF_SYMBOL_TABLE = False # -elf
-DEBUG_REGISTERS = False # -r
-DEBUG_PROFILING = False # -p
-SAVE_BUILD = False # --save_build
-
 QUIT_LABEL = "Terminate"
 START_LABEL = "Reset_Handler"
+
+debug_instructions = False # -i
+debug_machine_code = False # -mc
+debug_elf = False # -elf
+debug_reg = False # -r
+debug_profile = False # -p
+debug_save_build = False # --debug_save_build
+
 quit_address = None
 start_address = None
 
@@ -72,16 +79,17 @@ def assemble_and_link(cwd):
     process_readelf = subprocess.Popen(command_readelf, stdout=subprocess.PIPE)
     readelf_output = process_readelf.communicate()[0].decode()    
         
-    command_findstr = ['findstr', f'{QUIT_LABEL}']
-    result = subprocess.run(command_findstr, input=readelf_output, shell=True, text=True, capture_output=True)        
-    quit_address = int(result.stdout.split()[1], 16)
+    command_name_for_os = 'findstr' if platform.system() == "Windows" else 'grep'
+    command_findstr = [command_name_for_os, f'{QUIT_LABEL}']
+    quit_result = subprocess.run(command_findstr, input=readelf_output, shell=True, text=True, capture_output=True)        
+    quit_address = int(quit_result.stdout.split()[1], 16)
     
     # Find start address
-    command_findstr = ['findstr', f'{START_LABEL}']
-    result = subprocess.run(command_findstr, input=readelf_output, shell=True, text=True, capture_output=True)        
-    start_address = int(result.stdout.split()[1], 16)
+    command_findstr = [command_name_for_os, f'{START_LABEL}']
+    start_result = subprocess.run(command_findstr, input=readelf_output, shell=True, text=True, capture_output=True)        
+    start_address = int(start_result.stdout.split()[1], 16)
     
-    if (DEBUG_ELF_SYMBOL_TABLE):
+    if (debug_elf):
         print(readelf_output)
         print("QUIT: " + str(quit_address))
         print("START: " + str(start_address))
@@ -96,7 +104,6 @@ def hook_code(uc, address, size, user_data):
     global last_address
     global cycles      
     
-    # Read the instruction bytes from memory
     code_bytes = uc.mem_read(address, size)
     
     # Convert the bytes to a human-readable string
@@ -106,12 +113,14 @@ def hook_code(uc, address, size, user_data):
     md = Cs(CS_ARCH_ARM, CS_MODE_THUMB)
     disassembly = list(md.disasm(code_bytes, address))
     
-    # Profiling
     instructions += 1
     instruction_bytes += size 
     
+    if (disassembly[0].mnemonic.lower().startswith("bkpt")):
+        print(f"BREAKPOINT HIT! Address: 0x{address:08X}.")        
+        uc.emu_stop()
+    
     # Certain instructions add extra cycles
-    # Doesn't include all instructions (Notably LDRM, STRM, LDR/STR (When crossing word boundaries) and others)
     add_cycles(disassembly, "udiv", 3)
     add_cycles(disassembly, "sdiv", 3)
     add_cycles(disassembly, "ldr", 1)
@@ -121,12 +130,12 @@ def hook_code(uc, address, size, user_data):
     # Branching adds 2 extra cycles
     if (last_address != None and (address - last_address > 4 or address - last_address < 2)):
         cycles += 2
-        if (DEBUG_INSTRUCTIONS):
+        if (debug_instructions):
             print("Branched!")
     last_address = address
 
     # Print the address, instruction bytes, and disassembly
-    if (DEBUG_INSTRUCTIONS):
+    if (debug_instructions):
         trailingX = " XX XX" if size == 2 else ""
         print(f"Executing instruction at 0x{address:08X}: {instruction_str}{trailingX} | {disassembly[0].mnemonic} {disassembly[0].op_str} ({size})")  
         
@@ -135,7 +144,6 @@ def add_cycles(disassembly, check_str, cycle_bonus):
     if (disassembly[0].mnemonic.lower().startswith(check_str)):
         cycles += cycle_bonus 
     
-# Yes it's not DRY but whatever, make it into a loop if you want   
 def check_registers():  
     r0 = mu.reg_read(UC_ARM_REG_R0)
     r1 = mu.reg_read(UC_ARM_REG_R1)
@@ -174,34 +182,72 @@ def check_registers():
     print(f"CPSR: 0x{cpsr:08X} ({cpsr})")
     print(f"SPSR: 0x{spsr:08X} ({spsr})")
 
+def print_help():
+    print("Here's all the flags:")
+    print(" General Use:")
+    print("     [-p] to check the performance of the code")
+    print("     [-i] to see each instruction as it is executed")
+    print("     [-r] to see what is in each register after the code runs")
+    print("     [-T X] (Where X is a number) to force the program to close early. X is 10 by default")
+    print(" Debug Use:")
+    print("     [-mc] to see the machine code")
+    print("     [--debug_save_build] to prevent deletion of compiled files. They will appear next to your arm files")
+    
+def delete_build_dir():
+    buildDir = os.path.join(cwd, BUILD_NAME)
+    if (os.path.exists(buildDir)):
+        shutil.rmtree(buildDir, ignore_errors=True)
+        
+def print_profiling():
+    global instructions
+    global instruction_bytes   
+    global last_address
+    global cycles  
+    
+    end_time = time.time()
+    time_difference_ms = (end_time - start_time) * 1000
+    cycles += instructions    
+    print("\nProfiling:")
+    print("Time (ms): " + str(round(time_difference_ms * 1000) / 1000))
+    print("Instructions: " + str(instructions))
+    print("Instruction bytes: " + str(instruction_bytes))
+    print("Cycles: " + str(cycles))
+    print("Cycles (modifed for submitty): " + str(cycles * 19))
+    
 try:
+    if (len(sys.argv) - 1 == 0):
+        print_help()
+        sys.exit()
+        
     # Manage argument flags
     for i, arg in enumerate(sys.argv[1:]):
         if (arg == "-i"):
-            DEBUG_INSTRUCTIONS = True
+            debug_instructions = True
         if (arg == "-mc"):
-            DEBUG_MACHINE_CODE = True
+            debug_machine_code = True
         if (arg == "-elf"):
-            DEBUG_ELF_SYMBOL_TABLE = True
+            debug_elf = True
         if (arg == "-r"):
-            DEBUG_REGISTERS = True
+            debug_reg = True
         if (arg == "-p"):
-            DEBUG_PROFILING = True
-        if (arg == "--save_build"):
-            SAVE_BUILD = True
+            debug_profile = True
+        if (arg == "--debug_save_build"):
+            debug_save_build = True
         if (arg == "-T"):
             MAX_RUNNING_SECONDS = float(sys.argv[i+2])   
+        if (arg == "-help"):
+           print_help()
     
     # Build program
     cwd = os.getcwd()
     assemble_and_link(cwd)    
-    path = os.path.join(cwd, BUILD_NAME + "\\finalBuild.bin")
+    path = os.path.join(cwd, BUILD_NAME, "finalBuild.bin")
     
     with open(path, 'rb') as file:
         code = file.read()    
     file.close()
     
-    if (DEBUG_MACHINE_CODE):
+    if (debug_machine_code):
         print("Assembled code:")       
         print(code)
     
@@ -211,42 +257,31 @@ try:
     # Map memory for this emulation, See linker script for more details
     mu.mem_map(ADDRESS, 128 * 1024, UC_PROT_ALL)
     mu.mem_map(RAM_ADDRESS, 8 * 1024, UC_PROT_ALL)
+    mu.mem_map(STACK_ADDRESS, 4 * 1024, UC_PROT_ALL)
 
     # Write machine code to be emulated to memory
-    mu.mem_write(ADDRESS, code)
-    
-    # Add a hook to print each executed instruction
+    mu.mem_write(ADDRESS, code)    
     mu.hook_add(UC_HOOK_CODE, hook_code)
     
     # Start emulation. Will exit if it hits quit_address (Terminate Label in startup.s) or after x seconds
-    start_time = time.time()
-    print("Emulation start")
+    start_time = time.time()    
     secs = MAX_RUNNING_SECONDS*1000*1000
+    
+    print("Emulation start")
     mu.emu_start(start_address | 1, quit_address, timeout=int(secs))        
     
-    # Delete build directory
-    if (not SAVE_BUILD):
-        buildDir = os.path.join(cwd, BUILD_NAME)
-        if (os.path.exists(buildDir)):
-            shutil.rmtree(buildDir)
+    if (not debug_save_build):
+        delete_build_dir()
     
-    if (DEBUG_REGISTERS):
+    if (debug_reg):
         print("\nEmulation done. Below is the CPU context")    
         check_registers()
     
-    if (DEBUG_PROFILING):
-        end_time = time.time()
-        time_difference_ms = (end_time - start_time) * 1000
-        cycles += instructions    
-        print("\nProfiling:")
-        print("Time (ms): " + str(round(time_difference_ms * 1000) / 1000))
-        print("Instructions: " + str(instructions))
-        print("Instruction bytes: " + str(instruction_bytes))
-        print("Cycles: " + str(cycles))
-        print("Cycles (modifed for submitty): " + str(cycles * 19))
+    if (debug_profile):
+        print_profiling()
 
 except UcError as e:
     print("ERROR: %s" % e)    
-    if (DEBUG_REGISTERS and mu != None):
+    if (debug_reg and mu != None):
         print("There was an error, below is the CPU context")    
         check_registers()    
