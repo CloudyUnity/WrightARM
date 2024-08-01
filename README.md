@@ -27,34 +27,34 @@ HOW TO INSTALL (WINDOWS):
     Also add this folder (StrongARM) to environment path variables:
         See above
     
-HOW TO USE (WINDOWS):
-    cmd > cd "/path/to/src"
-    For example with bitPattern on my computer:
-        cmd > cd "C:\Users\finnw\OneDrive\Documents\Trinity\CS\Computing\1791-bitpattern\src"
-        The src folder should contain both test.s and bitPattern.s
+HOW TO USE (WINDOWS):  
+    cmd > cd "/path/to/src"  
+    For example with bitPattern on my computer:  
+        cmd > cd "C:\Users\finnw\OneDrive\Documents\Trinity\CS\Computing\1791-bitpattern\src"  
+        The src folder should contain both test.s and bitPattern.s  
 
-    cmd > emulate_arm.py [FLAGS]   
-    For example: 
-        cmd > emulate_arm.py -p -r -i -elf -T 5
+    cmd > emulate_arm.py [FLAGS]     
+    For example:   
+        cmd > emulate_arm.py -p -r -i -elf -T 5  
 
-FLAGS:
-    These flags allow you to debug your program in different ways
-    You can chain as many flags together as you want
-    "-help":
-        Get quick info on all the flags
-    "-r":
-        Check the final state of all the registers
-    "-p":
-        Check performance of your program in terms of time, instructions and cycles
-        Note that the cycles are nowhere near as large as the submitty cycles for some reason. But this program isn't to determine the exact cycle count of your assembly but instead to find changes in performance as you modify it
-    "-i":
-        See all the instructions ran by the program, their machine code and addresses
-    "-mc":
-        See the raw bytes of the assembly .bin file
-    "-elf":
-        See the ELF Symbol Table for the program. You can see the addresses of all labels and stored data
-    "-T {seconds}":
-        Changes the maximum running time to {seconds} after which the emulation force closes
-        This is 10 seconds by default. I recommend you don't make it too long in case you have an infinite loop
-    "--save_build":
-        Prevents the build being destroyed after the program finishes. Maybe you're curious what's in there
+FLAGS:  
+    These flags allow you to debug your program in different ways  
+    You can chain as many flags together as you want  
+    "-help":  
+        Get quick info on all the flags  
+    "-r":  
+        Check the final state of all the registers  
+    "-p":  
+        Check performance of your program in terms of time, instructions and cycles  
+        Note that the cycles are nowhere near as large as the submitty cycles for some reason. But this program isn't to determine the exact cycle count of your assembly but instead to find changes in performance as you modify it  
+    "-i":  
+        See all the instructions ran by the program, their machine code and addresses  
+    "-mc":  
+        See the raw bytes of the assembly .bin file  
+    "-elf":  
+        See the ELF Symbol Table for the program. You can see the addresses of all labels and stored data  
+    "-T {seconds}":  
+        Changes the maximum running time to {seconds} after which the emulation force closes  
+        This is 10 seconds by default. I recommend you don't make it too long in case you have an infinite loop  
+    "--save_build":  
+        Prevents the build being destroyed after the program finishes. Maybe you're curious what's in there  
