@@ -1,10 +1,14 @@
-Finn Wright's WrightARM Emulator
+Finn Wright's WrightARM Emulator  
 
-cmd = Command Line Prompt
+This was made to profile ARM assembly programs  
+This was made for and released to the entire TCD Computing class 2023/2024  
+It uses Unicorn, QEMU and Python  
 
-HOW TO INSTALL (WINDOWS):
-    Make sure python is installed, otherwise:
-        type "python" into cmd. It should take you to the microsoft store where you can install it
+cmd = Command Line Prompt  
+
+HOW TO INSTALL (WINDOWS):  
+    Make sure python is installed, otherwise:  
+        type "python" into cmd. It should take you to the microsoft store where you can install it  
 
     Install unicorn with:
         cmd > pip install unicorn
